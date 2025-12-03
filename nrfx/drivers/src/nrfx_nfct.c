@@ -35,6 +35,12 @@
 #include <nrfx_nfct.h>
 #include <hal/nrf_ficr.h>
 
+/* Workaround: Hardware only reports RXERROR event when parity error occurs for
+ * the last byte of a frame. To capture errors that occur earlier in the frame,
+ * always read RXSTATUS on RXFRAMEEND event, regardless of RXERROR event state.
+ */
+#define WORKAROUND_CERTIFICATION
+
 #define NRFX_LOG_MODULE NFCT
 #include <nrfx_log.h>
 
@@ -996,13 +1002,15 @@ void nrfx_nfct_irq_handler(void)
         };
 
         /* Take into account only the number of whole bytes. */
-        nfct_evt.params.rx_frameend.rx_status         = 0;
         nfct_evt.params.rx_frameend.rx_data.p_data    = nrfy_nfct_rxtx_buffer_get(NRF_NFCT);
         nfct_evt.params.rx_frameend.rx_data.data_size =
             NRFX_NFCT_BITS_TO_BYTES(nrfy_nfct_rx_bits_get(NRF_NFCT, true));
 
+#ifndef WORKAROUND_CERTIFICATION
+        nfct_evt.params.rx_frameend.rx_status         = 0;
         if (NRFX_NFCT_EVT_ACTIVE(RXERROR, evt_mask))
         {
+#endif // WORKAROUND_CERTIFICATION
             nfct_evt.params.rx_frameend.rx_status =
                 (nrfy_nfct_rx_frame_status_get(NRF_NFCT) & NRFX_NFCT_FRAME_STATUS_RX_ALL_MASK);
 
@@ -1010,7 +1018,9 @@ void nrfx_nfct_irq_handler(void)
 
             /* Clear rx frame status */
             nrfy_nfct_rx_frame_status_clear(NRF_NFCT, NRFX_NFCT_FRAME_STATUS_RX_ALL_MASK);
+#ifndef WORKAROUND_CERTIFICATION
         }
+#endif // WORKAROUND_CERTIFICATION
 
         NRFX_NFCT_CB_HANDLE(m_nfct_cb.config.cb, nfct_evt);
 
