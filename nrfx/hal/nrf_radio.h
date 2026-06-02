@@ -2227,7 +2227,11 @@ NRF_STATIC_INLINE void nrf_radio_frequency_set(NRF_RADIO_Type * p_reg, uint16_t 
     p_reg->FREQUENCY = delta;
 #else
     NRFX_ASSERT(radio_frequency >= 2400);
+#if defined(CONFIG_SOC_SERIES_NRF81)
+    p_reg->FREQUENCY = radio_frequency;
+#else
     p_reg->FREQUENCY = (uint32_t)(radio_frequency - 2400);
+#endif
 #endif //defined(RADIO_FREQUENCY_MAP_Msk)
 }
 
